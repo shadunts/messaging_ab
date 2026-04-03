@@ -87,13 +87,24 @@ export async function GET(
       createdAt,
       estimatedCompletion,
       stageProgress: buildStageProgress(job.currentStage, job.status),
-      _debug: {
-        ts: Date.now(),
-        rawStage: job.currentStage,
-        rawStatus: job.status,
-        dbType: process.env.TURSO_DATABASE_URL ? 'turso' : 'sqlite',
-        tursoUrl: process.env.TURSO_DATABASE_URL?.slice(0, 30) + '...',
-      },
+      _debug: await (async () => {
+        try {
+          const { createClient } = require('@libsql/client');
+          const raw = createClient({
+            url: process.env.TURSO_DATABASE_URL!,
+            authToken: process.env.TURSO_AUTH_TOKEN,
+          });
+          const r = await raw.execute({ sql: 'SELECT current_stage, status FROM jobs WHERE id = ?', args: [jobId] });
+          return {
+            ts: Date.now(),
+            drizzleStage: job.currentStage,
+            rawSqlStage: r.rows[0]?.current_stage,
+            rawSqlStatus: r.rows[0]?.status,
+          };
+        } catch (e) {
+          return { ts: Date.now(), drizzleStage: job.currentStage, rawError: String(e) };
+        }
+      })(),
     };
 
     if (job.errorMessage) {
