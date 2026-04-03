@@ -2,9 +2,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 import { NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { jobs } from '@/lib/schema';
+import { createClient } from '@libsql/client';
 import {
   STAGE_LABELS,
   type PipelineStage,
@@ -60,55 +58,48 @@ function buildStageProgress(
   });
 }
 
+function getTursoClient() {
+  return createClient({
+    url: process.env.TURSO_DATABASE_URL!,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: { jobId: string } }
 ) {
   try {
     const { jobId } = params;
+    const client = getTursoClient();
 
-    const job = await db.query.jobs.findFirst({
-      where: eq(jobs.id, jobId),
+    const result = await client.execute({
+      sql: `SELECT id, status, current_stage, created_at, error_message FROM jobs WHERE id = ?`,
+      args: [jobId],
     });
 
-    if (!job) {
+    const row = result.rows[0];
+    if (!row) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
-    const createdAt = job.createdAt.toISOString();
-    const estimatedCompletion = new Date(
-      job.createdAt.getTime() + 20 * 60 * 1000
-    ).toISOString();
+    const status = row.status as string;
+    const currentStage = row.current_stage as string | null;
+    const createdAtMs = row.created_at as number;
+    const createdAt = new Date(createdAtMs).toISOString();
+    const estimatedCompletion = new Date(createdAtMs + 20 * 60 * 1000).toISOString();
 
-    const response: StatusResponse & { errorMessage?: string; _debug?: unknown } = {
-      jobId: job.id,
-      status: job.status as JobStatus,
-      currentStage: (job.currentStage as PipelineStage) || null,
+    const response: StatusResponse & { errorMessage?: string } = {
+      jobId: row.id as string,
+      status: status as JobStatus,
+      currentStage: (currentStage as PipelineStage) || null,
       createdAt,
       estimatedCompletion,
-      stageProgress: buildStageProgress(job.currentStage, job.status),
-      _debug: await (async () => {
-        try {
-          const { createClient } = require('@libsql/client');
-          const raw = createClient({
-            url: process.env.TURSO_DATABASE_URL!,
-            authToken: process.env.TURSO_AUTH_TOKEN,
-          });
-          const r = await raw.execute({ sql: 'SELECT current_stage, status FROM jobs WHERE id = ?', args: [jobId] });
-          return {
-            ts: Date.now(),
-            drizzleStage: job.currentStage,
-            rawSqlStage: r.rows[0]?.current_stage,
-            rawSqlStatus: r.rows[0]?.status,
-          };
-        } catch (e) {
-          return { ts: Date.now(), drizzleStage: job.currentStage, rawError: String(e) };
-        }
-      })(),
+      stageProgress: buildStageProgress(currentStage, status),
     };
 
-    if (job.errorMessage) {
-      response.errorMessage = job.errorMessage as string;
+    if (row.error_message) {
+      response.errorMessage = row.error_message as string;
     }
 
     return NextResponse.json(response, {

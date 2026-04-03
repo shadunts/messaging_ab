@@ -2,10 +2,15 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 import { NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { jobs } from '@/lib/schema';
+import { createClient } from '@libsql/client';
 import type { ResultsResponse, FormInput, ParsedResults, ComparisonResult } from '@ab-predictor/shared';
+
+function getTursoClient() {
+  return createClient({
+    url: process.env.TURSO_DATABASE_URL!,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
 
 export async function GET(
   _request: Request,
@@ -13,28 +18,31 @@ export async function GET(
 ) {
   try {
     const { jobId } = params;
+    const client = getTursoClient();
 
-    const job = await db.query.jobs.findFirst({
-      where: eq(jobs.id, jobId),
+    const result = await client.execute({
+      sql: `SELECT id, status, form_input, results_a, results_b, comparison FROM jobs WHERE id = ?`,
+      args: [jobId],
     });
 
-    if (!job) {
+    const row = result.rows[0];
+    if (!row) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
-    if (job.status !== 'completed' || !job.resultsA || !job.resultsB || !job.comparison) {
+    if (row.status !== 'completed' || !row.results_a || !row.results_b || !row.comparison) {
       return NextResponse.json(
-        { error: 'Results not yet available', status: job.status },
-        { status: 422 }
+        { error: 'Results not yet available', status: row.status },
+        { status: 422, headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
     const response: ResultsResponse = {
-      jobId: job.id,
-      formInput: job.formInput as FormInput,
-      resultsA: job.resultsA as ParsedResults,
-      resultsB: job.resultsB as ParsedResults,
-      comparison: job.comparison as ComparisonResult,
+      jobId: row.id as string,
+      formInput: JSON.parse(row.form_input as string) as FormInput,
+      resultsA: JSON.parse(row.results_a as string) as ParsedResults,
+      resultsB: JSON.parse(row.results_b as string) as ParsedResults,
+      comparison: JSON.parse(row.comparison as string) as ComparisonResult,
     };
 
     return NextResponse.json(response, {

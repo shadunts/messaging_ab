@@ -1,10 +1,8 @@
 export const dynamic = 'force-dynamic';
 
-import { eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
+import { createClient } from '@libsql/client';
 import type { Metadata } from 'next';
-import { db } from '@/lib/db';
-import { jobs } from '@/lib/schema';
 import Dashboard from '@/components/results/Dashboard';
 import type {
   ResultsResponse,
@@ -13,21 +11,35 @@ import type {
   ComparisonResult,
 } from '@ab-predictor/shared';
 
+function getTursoClient() {
+  return createClient({
+    url: process.env.TURSO_DATABASE_URL!,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
+
+async function getJob(jobId: string) {
+  const client = getTursoClient();
+  const result = await client.execute({
+    sql: `SELECT * FROM jobs WHERE id = ?`,
+    args: [jobId],
+  });
+  return result.rows[0] ?? null;
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: { jobId: string };
 }): Promise<Metadata> {
-  const job = await db.query.jobs.findFirst({
-    where: eq(jobs.id, params.jobId),
-  });
+  const job = await getJob(params.jobId);
 
   if (!job || job.status !== 'completed' || !job.comparison) {
     return { title: 'Results | Messaging A/B' };
   }
 
-  const input = job.formInput as FormInput;
-  const comparison = job.comparison as ComparisonResult;
+  const input = JSON.parse(job.form_input as string) as FormInput;
+  const comparison = JSON.parse(job.comparison as string) as ComparisonResult;
   const winnerLabel =
     comparison.winner === 'tie'
       ? 'Too close to call'
@@ -59,21 +71,18 @@ export default async function ResultsPage({
   params: { jobId: string };
 }) {
   const { jobId } = params;
+  const job = await getJob(jobId);
 
-  const job = await db.query.jobs.findFirst({
-    where: eq(jobs.id, jobId),
-  });
-
-  if (!job || job.status !== 'completed' || !job.resultsA || !job.resultsB || !job.comparison) {
+  if (!job || job.status !== 'completed' || !job.results_a || !job.results_b || !job.comparison) {
     notFound();
   }
 
   const data: ResultsResponse = {
-    jobId: job.id,
-    formInput: job.formInput as FormInput,
-    resultsA: job.resultsA as ParsedResults,
-    resultsB: job.resultsB as ParsedResults,
-    comparison: job.comparison as ComparisonResult,
+    jobId: job.id as string,
+    formInput: JSON.parse(job.form_input as string) as FormInput,
+    resultsA: JSON.parse(job.results_a as string) as ParsedResults,
+    resultsB: JSON.parse(job.results_b as string) as ParsedResults,
+    comparison: JSON.parse(job.comparison as string) as ComparisonResult,
   };
 
   return (
