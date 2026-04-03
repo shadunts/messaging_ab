@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
 import { db } from '@/lib/db';

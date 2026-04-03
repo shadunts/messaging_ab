@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';

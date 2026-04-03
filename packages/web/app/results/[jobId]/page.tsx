@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
