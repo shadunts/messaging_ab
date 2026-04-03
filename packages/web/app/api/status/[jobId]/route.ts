@@ -80,13 +80,14 @@ export async function GET(
       job.createdAt.getTime() + 20 * 60 * 1000
     ).toISOString();
 
-    const response: StatusResponse & { errorMessage?: string } = {
+    const response: StatusResponse & { errorMessage?: string; _debug?: unknown } = {
       jobId: job.id,
       status: job.status as JobStatus,
       currentStage: (job.currentStage as PipelineStage) || null,
       createdAt,
       estimatedCompletion,
       stageProgress: buildStageProgress(job.currentStage, job.status),
+      _debug: { ts: Date.now(), rawStage: job.currentStage, rawStatus: job.status },
     };
 
     if (job.errorMessage) {
