@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
