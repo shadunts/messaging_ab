@@ -36,7 +36,25 @@ Output schema (JSON):
   "emailEngagement": { "opens": number, "clicks": number }
 }
 
-CRITICAL FOR agentQuotes: Quotes MUST be about the MESSAGING specifically — what worked or didn't work about the headline, positioning, or copy. Focus on reactions to the message itself: "This headline grabbed me because...", "The feature-led framing feels generic...", "I'd click through because the pain point is exactly right." Do NOT include quotes about the company or product in general. Every quote should give the PMM actionable feedback about the messaging choice.`;
+CRITICAL FOR agentQuotes: Extract 5-8 quotes maximum. Each quote must be a SPECIFIC reaction to the actual headline/copy text, not generic meta-commentary.
+
+BAD (too generic, no signal):
+- "The headline addresses a real pain point"
+- "I am looking for differentiation in the positioning"
+- "The headline and supporting copy influence my evaluation"
+
+GOOD (specific, actionable, references actual words):
+- "'Stop guessing' made me think of last Monday's pipeline review where we had zero insight into why three deals died"
+- "The feature list feels like every other sales tool pitch — nothing tells me why THIS is different from Chorus"
+- "I'd share 'stop guessing why deals die' with my CRO — it's the exact conversation we had last quarter"
+- "AI-powered analytics? I've heard that from 10 vendors. Show me the before/after, not the buzzword"
+
+Rules:
+- Reference the ACTUAL headline words or copy phrases, not abstract concepts
+- Include the persona's emotional/practical reaction, not analysis of "positioning"
+- Each quote must be UNIQUE — no two quotes should make the same point
+- Vary sentiment: include skeptics, enthusiasts, and indifferent personas
+- If the report is in Chinese, translate the quotes but keep the specificity`;
 
 export async function parseReport(
   reportMarkdown: string,
