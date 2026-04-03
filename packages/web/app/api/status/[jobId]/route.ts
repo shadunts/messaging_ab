@@ -87,7 +87,13 @@ export async function GET(
       createdAt,
       estimatedCompletion,
       stageProgress: buildStageProgress(job.currentStage, job.status),
-      _debug: { ts: Date.now(), rawStage: job.currentStage, rawStatus: job.status },
+      _debug: {
+        ts: Date.now(),
+        rawStage: job.currentStage,
+        rawStatus: job.status,
+        dbType: process.env.TURSO_DATABASE_URL ? 'turso' : 'sqlite',
+        tursoUrl: process.env.TURSO_DATABASE_URL?.slice(0, 30) + '...',
+      },
     };
 
     if (job.errorMessage) {
