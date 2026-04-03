@@ -93,12 +93,14 @@ export async function GET(
       response.errorMessage = job.errorMessage as string;
     }
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    });
   } catch (err) {
     console.error('Status error:', err);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 }

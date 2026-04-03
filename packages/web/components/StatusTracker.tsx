@@ -95,7 +95,7 @@ export default function StatusTracker({
 
     async function poll() {
       try {
-        const res = await fetch(`/api/status/${jobId}`);
+        const res = await fetch(`/api/status/${jobId}`, { cache: 'no-store' });
         if (!res.ok) {
           if (!cancelled) setError('Failed to fetch status');
           return;

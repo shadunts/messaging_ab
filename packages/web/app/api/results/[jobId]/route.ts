@@ -37,9 +37,11 @@ export async function GET(
       comparison: job.comparison as ComparisonResult,
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    });
   } catch (err) {
     console.error('Results error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }
