@@ -97,11 +97,12 @@ export default function StatusTracker({
       try {
         const res = await fetch(`/api/status/${jobId}`);
         if (!res.ok) {
-          setError('Failed to fetch status');
+          if (!cancelled) setError('Failed to fetch status');
           return;
         }
         const json: StatusResponse = await res.json();
         if (!cancelled) {
+          setError(null);
           const now = Date.now();
           const prev = prevStagesRef.current;
           const timings = timingsRef.current;
