@@ -38,10 +38,13 @@ function validateInput(body: unknown): { valid: true; data: FormInput } | { vali
     }
   }
 
-  // Product category: must be a known option OR a non-empty custom string (from "Other")
+  // Product category: known option, or any non-empty string if "Other" was selected
   const cat = typeof f.productCategory === 'string' ? f.productCategory.trim() : '';
-  if (!cat || cat.length > 100) {
-    return { valid: false, error: 'Product category is required (max 100 characters)' };
+  if (!cat) {
+    return { valid: false, error: 'Product category is required' };
+  }
+  if (!CATEGORY_OPTIONS.includes(cat as typeof CATEGORY_OPTIONS[number]) && cat.length > 100) {
+    return { valid: false, error: 'Custom category must be at most 100 characters' };
   }
   if (!COMPANY_SIZE_OPTIONS.includes(f.companySize as typeof COMPANY_SIZE_OPTIONS[number])) {
     return { valid: false, error: 'Invalid company size' };
