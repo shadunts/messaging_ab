@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
+
+WORKDIR /app/backend
+
+# Copy dependency files first for layer caching
+COPY backend/pyproject.toml backend/uv.lock ./
+
+# Install Python dependencies
+RUN uv sync --frozen
+
+# Copy backend source
+COPY backend/ ./
+
+# Create uploads directory for persistent data
+RUN mkdir -p uploads/projects uploads/reports uploads/simulations
+
+EXPOSE 5001
+
+ENV FLASK_DEBUG=false
+ENV FLASK_HOST=0.0.0.0
+ENV FLASK_PORT=5001
+
+CMD ["uv", "run", "python", "run.py"]

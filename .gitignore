@@ -1,0 +1,20 @@
+node_modules/
+.venv/
+.next/
+out/
+dist/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+data/
+.DS_Store
+.turbo
+dump.rdb
+
+# MiroFish runtime data
+MiroFish/backend/uploads/
+MiroFish/backend/logs/
