@@ -36,25 +36,29 @@ Output schema (JSON):
   "emailEngagement": { "opens": number, "clicks": number }
 }
 
-CRITICAL FOR agentQuotes: Extract 5-8 quotes maximum. Each quote must be a SPECIFIC reaction to the actual headline/copy text, not generic meta-commentary.
+CRITICAL FOR agentQuotes: Do NOT extract raw agent internal thoughts or deliberation from the report. The report contains agent reasoning like "I am looking for weaknesses in X's positioning" or "The headline influences my evaluation" — these are SIMULATION INTERNALS, not usable feedback.
 
-BAD (too generic, no signal):
+Instead, SYNTHESIZE 5-8 realistic buyer reactions based on what each agent DID in the simulation (their actions, sentiment, engagement level). Write each quote as if a real buyer said it out loud after seeing the headline/copy.
+
+BAD (agent internal thoughts — NEVER use these):
+- "I am looking for weaknesses in the positioning"
+- "The title and supporting copy directly influence whether X makes my shortlist"
+- "I will professionally evaluate the differentiation and honesty"
 - "The headline addresses a real pain point"
-- "I am looking for differentiation in the positioning"
-- "The headline and supporting copy influence my evaluation"
 
-GOOD (specific, actionable, references actual words):
-- "'Stop guessing' made me think of last Monday's pipeline review where we had zero insight into why three deals died"
-- "The feature list feels like every other sales tool pitch — nothing tells me why THIS is different from Chorus"
-- "I'd share 'stop guessing why deals die' with my CRO — it's the exact conversation we had last quarter"
-- "AI-powered analytics? I've heard that from 10 vendors. Show me the before/after, not the buzzword"
+GOOD (synthesized buyer reactions based on agent behavior):
+- "'Stop guessing' hit me right where it hurts — I just lost a deal last week and had no idea why"
+- "Every vendor says 'AI-powered analytics' now. This headline told me nothing I haven't heard from Chorus and Clari"
+- "I shared this with my CRO because 'why deals die' is literally the question we argue about every Monday"
+- "Nice headline, but the supporting copy is just a feature dump. I wanted to hear about outcomes, not capabilities"
 
 Rules:
-- Reference the ACTUAL headline words or copy phrases, not abstract concepts
-- Include the persona's emotional/practical reaction, not analysis of "positioning"
-- Each quote must be UNIQUE — no two quotes should make the same point
-- Vary sentiment: include skeptics, enthusiasts, and indifferent personas
-- If the report is in Chinese, translate the quotes but keep the specificity`;
+- NEVER copy agent deliberation text from the report — always synthesize
+- Reference the ACTUAL headline words or copy phrases
+- Write as first-person buyer speech, not analytical observation
+- Each quote must make a DIFFERENT point — no repetition
+- Mix of positive, negative, and indifferent reactions
+- If the report is in Chinese, synthesize English quotes based on the agent's behavior`;
 
 export async function parseReport(
   reportMarkdown: string,
