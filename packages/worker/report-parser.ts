@@ -86,7 +86,7 @@ const COMPARE_SYSTEM_PROMPT = `You are a marketing analytics assistant. Given pa
 
 IMPORTANT: Use RELATIVE framing only. Never output absolute percentages like "78% adoption rate." Use multipliers, raw counts, and comparative language ("2.3x more", "5 additional personas engaged"). The simulation predicts which message performs BETTER, not exact conversion rates.
 
-CRITICAL: The winner must be consistent with the data. Check sentimentOverTime totals, wordOfMouth counts, adoption signal strength, objection severity, and emailEngagement. If Message B has more cumulative positive signals, B should be the winner unless other metrics strongly favor A.
+CRITICAL: The winner is pre-determined and provided in the user message as "WINNER:" — you MUST use that value for the "winner" field. Do NOT override it based on your own analysis. Your job is to explain WHY the winner won using the data, not to pick the winner.
 
 IMPORTANT: Among the metrics array, include TWO email-related entries derived from each message's emailEngagement data:
 1. metric: "Inferred email opens" — use the opens counts from each result's emailEngagement.
@@ -105,11 +105,50 @@ Output schema (JSON):
   "recommendation": string
 }`;
 
+function computeWinner(a: ParsedResults, b: ParsedResults): 'A' | 'B' | 'tie' {
+  let scoreA = 0;
+  let scoreB = 0;
+
+  // Positive sentiment total
+  const posA = a.sentimentOverTime.reduce((s, r) => s + r.positive, 0);
+  const posB = b.sentimentOverTime.reduce((s, r) => s + r.positive, 0);
+  if (posA > posB) scoreA++; else if (posB > posA) scoreB++;
+
+  // Word of mouth (shares + recommendations)
+  const womA = a.wordOfMouth.shares + a.wordOfMouth.recommendations;
+  const womB = b.wordOfMouth.shares + b.wordOfMouth.recommendations;
+  if (womA > womB) scoreA++; else if (womB > womA) scoreB++;
+
+  // Strong/moderate adoption signals
+  const adoptA = a.adoptionSignals.filter(s => s.intent === 'strong' || s.intent === 'moderate').length;
+  const adoptB = b.adoptionSignals.filter(s => s.intent === 'strong' || s.intent === 'moderate').length;
+  if (adoptA > adoptB) scoreA++; else if (adoptB > adoptA) scoreB++;
+
+  // Email engagement (opens + clicks)
+  const emailA = (a.emailEngagement?.opens ?? 0) + (a.emailEngagement?.clicks ?? 0);
+  const emailB = (b.emailEngagement?.opens ?? 0) + (b.emailEngagement?.clicks ?? 0);
+  if (emailA > emailB) scoreA++; else if (emailB > emailA) scoreB++;
+
+  // Fewer blocking objections is better
+  const blockA = a.objections.filter(o => o.severity === 'blocking').length;
+  const blockB = b.objections.filter(o => o.severity === 'blocking').length;
+  if (blockA < blockB) scoreA++; else if (blockB < blockA) scoreB++;
+
+  if (scoreA > scoreB) return 'A';
+  if (scoreB > scoreA) return 'B';
+  return 'tie';
+}
+
 export async function generateComparison(
   resultsA: ParsedResults,
   resultsB: ParsedResults,
   input: FormInput
 ): Promise<ComparisonResult> {
+  const winner = computeWinner(resultsA, resultsB);
+  const winnerDesc = winner === 'tie'
+    ? 'The two messages performed roughly equally across all metrics.'
+    : `Message ${winner} outperformed Message ${winner === 'A' ? 'B' : 'A'} across the majority of metrics.`;
+
   const response = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
@@ -117,6 +156,9 @@ export async function generateComparison(
       {
         role: 'user',
         content: `Compare these two simulation results for "${input.productName}".
+
+WINNER: ${winner}
+${winnerDesc}
 
 Message A: "${input.headlineA}" (${input.approachLabelA || 'Message A'})
 Message B: "${input.headlineB}" (${input.approachLabelB || 'Message B'})
