@@ -36,33 +36,75 @@ Output schema (JSON):
   "emailEngagement": { "opens": number, "clicks": number }
 }
 
-CRITICAL FOR agentQuotes: Do NOT extract raw agent internal thoughts or deliberation from the report. The report contains agent reasoning like "I am looking for weaknesses in X's positioning" or "The headline influences my evaluation" — these are SIMULATION INTERNALS, not usable feedback.
+For agentQuotes: output an EMPTY array []. Quotes will be generated separately.`;
 
-Instead, SYNTHESIZE 5-8 realistic buyer reactions based on what each agent DID in the simulation (their actions, sentiment, engagement level). Write each quote as if a real buyer said it out loud after seeing the headline/copy.
+const QUOTES_SYSTEM_PROMPT = `You are a copywriter who turns simulation behavior data into realistic buyer reactions. Respond ONLY with valid JSON. No markdown, no explanation.
 
-BAD (agent internal thoughts — NEVER use these):
-- "I am looking for weaknesses in the positioning"
-- "The title and supporting copy directly influence whether X makes my shortlist"
-- "I will professionally evaluate the differentiation and honesty"
-- "The headline addresses a real pain point"
+Given a product headline/copy and a summary of how simulated buyer personas behaved, SYNTHESIZE 5-8 realistic first-person buyer quotes.
 
-GOOD (synthesized buyer reactions based on agent behavior):
+Output schema (JSON):
+{
+  "agentQuotes": [{ "agentName": string, "agentRole": string, "quote": string, "sentiment": "positive"|"negative"|"neutral" }]
+}
+
+Rules:
+- Write as first-person buyer speech — as if a real person said it out loud after seeing the headline
+- Reference the ACTUAL headline words or copy phrases
+- Each quote must make a DIFFERENT point — no repetition
+- Mix of positive, negative, and indifferent reactions
+- Use the persona names and roles provided
+- Do NOT write analytical observations — write emotional, human reactions
+- Negative quotes should cite specific weaknesses (vague claims, missing proof, buzzword fatigue)
+- Positive quotes should cite specific resonance (pain point hit, shareability, clarity)
+
+Examples of GOOD quotes:
 - "'Stop guessing' hit me right where it hurts — I just lost a deal last week and had no idea why"
 - "Every vendor says 'AI-powered analytics' now. This headline told me nothing I haven't heard from Chorus and Clari"
 - "I shared this with my CRO because 'why deals die' is literally the question we argue about every Monday"
-- "Nice headline, but the supporting copy is just a feature dump. I wanted to hear about outcomes, not capabilities"
+- "Nice headline, but the supporting copy is just a feature dump. I wanted to hear about outcomes, not capabilities"`;
 
-Rules:
-- NEVER copy agent deliberation text from the report — always synthesize
-- Reference the ACTUAL headline words or copy phrases
-- Write as first-person buyer speech, not analytical observation
-- Each quote must make a DIFFERENT point — no repetition
-- Mix of positive, negative, and indifferent reactions
-- If the report is in Chinese, synthesize English quotes based on the agent's behavior`;
+async function generateQuotes(
+  headline: string,
+  supportingCopy: string | undefined,
+  adoptionSignals: ParsedResults['adoptionSignals'],
+  dominantNarrative: string
+): Promise<ParsedResults['agentQuotes']> {
+  const personaSummary = adoptionSignals
+    .map(s => `- ${s.persona} (intent: ${s.intent}): ${s.reasoning}`)
+    .join('\n');
+
+  const response = await getOpenAI().chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: QUOTES_SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: `Product headline: "${headline}"
+${supportingCopy ? `Supporting copy: "${supportingCopy}"` : ''}
+
+Overall narrative: ${dominantNarrative}
+
+Persona behaviors:
+${personaSummary}
+
+Generate 5-8 realistic buyer reaction quotes based on these behaviors.`,
+      },
+    ],
+    response_format: { type: 'json_object' },
+    temperature: 0.7,
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) return [];
+  const parsed = JSON.parse(content);
+  return parsed.agentQuotes ?? [];
+}
 
 export async function parseReport(
   reportMarkdown: string,
-  actionsJson: string
+  actionsJson: string,
+  headline: string,
+  supportingCopy?: string
 ): Promise<ParsedResults> {
   const response = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
@@ -79,7 +121,17 @@ export async function parseReport(
 
   const content = response.choices[0]?.message?.content;
   if (!content) throw new Error('Empty response from LLM during report parsing');
-  return JSON.parse(content) as ParsedResults;
+  const results = JSON.parse(content) as ParsedResults;
+
+  // Generate quotes in a separate call without raw report in context
+  results.agentQuotes = await generateQuotes(
+    headline,
+    supportingCopy,
+    results.adoptionSignals,
+    results.dominantNarrative
+  );
+
+  return results;
 }
 
 const COMPARE_SYSTEM_PROMPT = `You are a marketing analytics assistant. Given parsed results from two A/B simulations of a product launch message, produce a structured comparison. Respond ONLY with valid JSON matching the schema below. No markdown, no explanation. ALL text MUST be in English.

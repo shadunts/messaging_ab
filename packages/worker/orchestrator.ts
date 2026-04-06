@@ -264,10 +264,10 @@ export async function processJob(jobId: string): Promise<void> {
     const actionsBStr = JSON.stringify(actionsB.actions);
 
     const resultsA = await withRetry('parseReportA', () =>
-      parseReport(reportDataA.markdown_content, actionsAStr)
+      parseReport(reportDataA.markdown_content, actionsAStr, input.headlineA, input.supportingCopyA || undefined)
     );
     const resultsB = await withRetry('parseReportB', () =>
-      parseReport(reportDataB.markdown_content, actionsBStr)
+      parseReport(reportDataB.markdown_content, actionsBStr, input.headlineB, input.supportingCopyB || undefined)
     );
     const comparison = await withRetry('generateComparison', () =>
       generateComparison(resultsA, resultsB, input)
